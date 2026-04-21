@@ -503,7 +503,7 @@
 
             // 下載
             const link = document.createElement('a');
-            link.download = `豆畫工坊_拼豆圖紙_${currentSize}x${currentSize}.png`;
+            link.download = `pixelart_${currentSize}x${currentSize}_${new Date().getTime()}.png`;
             link.href = canvas.toDataURL('image/png');
             link.click();
         }
