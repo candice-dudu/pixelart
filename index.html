@@ -10,10 +10,17 @@
             --cell-size: 14px;
         }
 
+        /* 禁止全域捲動，讓內部分區捲動 */
+        body {
+            overflow: hidden;
+            height: 100vh;
+        }
+
         /* 自定義捲軸 */
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #d1d1d1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #d1d1d1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
 
         .canvas-grid {
             display: grid;
@@ -34,7 +41,7 @@
 
         .pixel-cell:hover { filter: brightness(0.9); }
 
-        /* 強化網格線 */
+        /* 強化網格線 (每10格) */
         .thick-border-right { border-right: 2px solid #4b5563 !important; }
         .thick-border-bottom { border-bottom: 2px solid #4b5563 !important; }
 
@@ -42,6 +49,7 @@
             ring: 3px solid #3b82f6;
             transform: scale(1.1);
             z-index: 10;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
         }
 
         .tool-btn.active {
@@ -50,7 +58,7 @@
             border-color: #2563eb;
         }
 
-        /* 座標尺精準對齊 */
+        /* 座標尺對齊 */
         .ruler-container-top {
             display: grid;
             gap: 1px;
@@ -85,16 +93,16 @@
         }
     </style>
 </head>
-<body class="bg-stone-100 text-stone-800 min-h-screen flex flex-col">
+<body class="bg-stone-100 text-stone-800 flex flex-col">
 
-    <!-- Header -->
-    <header class="bg-white border-b border-stone-200 p-4 shadow-sm flex flex-wrap justify-between items-center z-20">
+    <!-- Header: 固定高度 -->
+    <header class="h-16 bg-white border-b border-stone-200 px-4 shadow-sm flex flex-none justify-between items-center z-30">
         <div class="flex items-center gap-3">
             <div class="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-lg">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 1.912 5.886h6.188l-5.004 3.636 1.912 5.886L12 14.772l-5.008 3.636 1.912-5.886L3.9 8.886h6.188L12 3z"/></svg>
             </div>
             <div>
-                <h1 class="text-xl font-bold tracking-tight text-indigo-900">豆畫工坊 <span class="text-indigo-500 font-normal">Pixel Art</span></h1>
+                <h1 class="text-xl font-bold tracking-tight text-indigo-900">豆畫工坊 <span class="text-indigo-500 font-normal">Pro</span></h1>
             </div>
         </div>
 
@@ -113,19 +121,20 @@
 
             <button onclick="exportImage()" class="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-all shadow-md active:scale-95">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                下載圖片
+                下載圖片 (含統計)
             </button>
 
             <button onclick="clearCanvas()" class="px-3 py-1.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-lg text-xs font-bold hover:bg-rose-100 transition-all">清空</button>
         </div>
     </header>
 
-    <main class="flex-1 flex overflow-hidden">
+    <!-- 主體內容區：撐滿剩餘高度 -->
+    <main class="flex flex-1 overflow-hidden">
         
-        <!-- Sidebar -->
-        <aside class="w-72 bg-white border-r border-stone-200 flex flex-col h-full shadow-lg z-10">
-            <!-- Tools Section -->
-            <div class="p-4 border-b border-stone-100 grid grid-cols-2 gap-2">
+        <!-- 左側邊欄：獨立捲動 -->
+        <aside class="w-72 bg-white border-r border-stone-200 flex flex-col h-full shadow-lg z-20 flex-none overflow-hidden">
+            <!-- 工具切換 -->
+            <div class="p-4 border-b border-stone-100 grid grid-cols-2 gap-2 flex-none">
                 <button id="tool-paint" onclick="setTool('paint')" class="tool-btn active flex items-center justify-center gap-2 py-2 border rounded-lg font-bold text-sm transition-all shadow-sm">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l5 5"/><path d="M11 11l1 1"/></svg>
                     畫筆
@@ -136,8 +145,8 @@
                 </button>
             </div>
 
-            <!-- Current Color Info -->
-            <div class="p-4 border-b border-stone-100 bg-stone-50">
+            <!-- 當前顏色資訊 -->
+            <div class="p-4 border-b border-stone-100 bg-stone-50 flex-none">
                 <div class="flex items-center gap-3">
                     <div id="current-color-preview" class="w-12 h-12 rounded-lg border-2 border-white shadow-md"></div>
                     <div>
@@ -147,26 +156,26 @@
                 </div>
             </div>
             
-            <!-- Palette -->
-            <div id="palette-container" class="flex-1 overflow-y-auto p-4 space-y-6"></div>
+            <!-- 顏色列表：此區塊獨立捲動 -->
+            <div id="palette-container" class="flex-1 overflow-y-auto p-4 space-y-6">
+                <!-- 由 JS 填充 -->
+            </div>
         </aside>
 
-        <!-- Canvas Area -->
-        <section class="flex-1 overflow-auto p-8 flex flex-col items-center">
-            <div id="canvas-wrapper" class="inline-block bg-white p-2 shadow-2xl rounded-sm">
-                <!-- Top Ruler -->
+        <!-- 右側畫布區：獨立捲動 -->
+        <section class="flex-1 overflow-auto p-4 md:p-12 flex flex-col items-center">
+            
+            <!-- 畫布與尺規容器 -->
+            <div id="canvas-wrapper" class="inline-block bg-white p-4 shadow-2xl rounded-sm mb-12 flex-none">
                 <div id="top-ruler" class="ruler-container-top"></div>
-
                 <div class="flex">
-                    <!-- Left Ruler -->
                     <div id="left-ruler" class="ruler-container-left"></div>
-                    <!-- Grid -->
                     <div id="grid" class="canvas-grid"></div>
                 </div>
             </div>
 
-            <!-- Inventory Section -->
-            <div class="mt-8 w-full max-w-4xl bg-white rounded-xl shadow-sm border border-stone-200 p-6 mb-12">
+            <!-- 顏色用量統計 -->
+            <div class="w-full max-w-4xl bg-white rounded-xl shadow-sm border border-stone-200 p-6 mb-20 flex-none">
                 <div class="flex items-center justify-between mb-4 border-b pb-2">
                     <h3 class="font-bold text-stone-600 flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-7 7-4-4"/></svg>
@@ -179,9 +188,11 @@
                 </div>
             </div>
         </section>
+
     </main>
 
     <script>
+        // 顏色數據庫 (A-R 系列)
         const COLOR_DATA = {
             "A": { "A1": "#FAF4C8", "A2": "#FFFFD5", "A3": "#FEFF8B", "A4": "#FBED56", "A5": "#F4D738", "A6": "#FEAC4C", "A7": "#FE8B4C", "A8": "#FFDA45", "A9": "#FF995B", "A10": "#F77C31", "A11": "#FFDD99", "A12": "#FE9F72", "A13": "#FFC365", "A14": "#FD543D", "A15": "#FFF365", "A16": "#FFFF9F", "A17": "#FFE36E", "A18": "#FEBE7D", "A19": "#FD7C72", "A20": "#FFD568", "A21": "#FFE395", "A22": "#F4F57D", "A23": "#E6C9B7", "A24": "#F7F8A2", "A25": "#FFD67D", "A26": "#FFC830" },
             "B": { "B1": "#E6EE31", "B2": "#63F347", "B3": "#9EF780", "B4": "#5DE035", "B5": "#35E352", "B6": "#65E2A6", "B7": "#3DAF80", "B8": "#1C9C4F", "B9": "#27523A", "B10": "#95D3C2", "B11": "#5D722A", "B12": "#166F41", "B13": "#CAEB7B", "B14": "#ADE946", "B15": "#2E5132", "B16": "#C5ED9C", "B17": "#9BB13A", "B18": "#E6EE49", "B19": "#24B88C", "B20": "#C2F0CC", "B21": "#156A6B", "B22": "#0B3C43", "B23": "#303A21", "B24": "#EEFCA5", "B25": "#4E846D", "B26": "#8D7A35", "B27": "#CCE1AF", "B28": "#9EE5B9", "B29": "#C5E254", "B30": "#E2FCB1", "B31": "#B0E792", "B32": "#9CAB5A" },
@@ -194,7 +205,6 @@
             "M": { "M1": "#BCC6B8", "M2": "#8AA386", "M3": "#697D80", "M4": "#E3D2BC", "M5": "#D0CCAA", "M6": "#B0A782", "M7": "#B4A497", "M8": "#B38281", "M9": "#A58767", "M10": "#C5B2BC", "M11": "#9F7594", "M12": "#644749", "M13": "#D19066", "M14": "#C77362", "M15": "#757D78" },
             "R": { "R1": "#D50D21", "R2": "#F92F83", "R3": "#FD8324", "R4": "#F8EC31", "R5": "#35C75B", "R6": "#238891", "R7": "#19779D", "R8": "#1A60C3", "R9": "#9A56B4", "R10": "#FFDB4C", "R11": "#FFEBFB", "R12": "#D8D5CE", "R13": "#55514C", "R14": "#9FE4DF", "R15": "#77CEE9", "R16": "#3ECFCA", "R17": "#4A867A", "R18": "#7FCD9D", "R19": "#CDE55D", "R20": "#E8C7B4", "R21": "#AD6F3C", "R22": "#6C372F", "R23": "#FEB872", "R24": "#F3C1C0", "R25": "#C9675E", "R26": "#D293BE", "R27": "#EA8CB1", "R28": "#9C87D6" }
         };
-
 
         let currentSize = 52;
         let selectedColorHex = "#000000";
@@ -221,7 +231,6 @@
                     btn.className = `palette-btn w-10 h-10 rounded-md border border-stone-200 shadow-sm transition-all hover:scale-110 active:scale-95`;
                     btn.style.backgroundColor = hex;
                     btn.id = `color-${id}`;
-                    btn.title = id;
                     btn.onclick = () => {
                         setTool('paint');
                         selectColor(id, hex);
@@ -375,29 +384,126 @@
             }
         }
 
-        // 匯出圖片
-        function exportImage() {
-            const scale = 10; 
+        // 核心更新：匯出圖片 (含格線、座標與統計)
+        async function exportImage() {
+            const scale = 20; // 單格 20px，確保高清
+            const offset = 60; // 邊距 (放置座標尺)
+            const gridWidth = currentSize * scale;
+            const gridHeight = currentSize * scale;
+
+            // 統計使用的顏色
+            const counts = {};
+            Object.values(gridState).forEach(id => counts[id] = (counts[id] || 0) + 1);
+            const sortedIds = Object.keys(counts).sort();
+            
+            // 計算統計區域高度 (每行放 5 個顏色)
+            const legendRowHeight = 40;
+            const legendRows = Math.ceil(sortedIds.length / 5);
+            const legendHeight = (legendRows > 0 ? (legendRows * legendRowHeight) + 80 : 0);
+
             const canvas = document.createElement('canvas');
-            canvas.width = currentSize * scale;
-            canvas.height = currentSize * scale;
+            canvas.width = gridWidth + offset + 40; // 加右邊距
+            canvas.height = gridHeight + offset + legendHeight;
             const ctx = canvas.getContext('2d');
 
+            // 1. 背景
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+            // 2. 繪製豆子與網格
+            ctx.translate(offset, offset);
+            
+            // 先畫背景格線 (細線)
+            ctx.strokeStyle = '#d1d5db';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let i = 0; i <= currentSize; i++) {
+                ctx.moveTo(i * scale, 0);
+                ctx.lineTo(i * scale, gridHeight);
+                ctx.moveTo(0, i * scale);
+                ctx.lineTo(gridWidth, i * scale);
+            }
+            ctx.stroke();
+
+            // 畫豆子
             for (let i = 0; i < currentSize * currentSize; i++) {
                 const colorId = gridState[i];
                 if (colorId) {
                     const row = Math.floor(i / currentSize);
                     const col = i % currentSize;
                     ctx.fillStyle = findHexById(colorId);
-                    ctx.fillRect(col * scale, row * scale, scale, scale);
+                    ctx.fillRect(col * scale + 0.5, row * scale + 0.5, scale - 1, scale - 1);
                 }
             }
 
+            // 3. 畫 10 格粗線
+            ctx.strokeStyle = '#4b5563';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (let i = 0; i <= currentSize; i += 10) {
+                ctx.moveTo(i * scale, 0);
+                ctx.lineTo(i * scale, gridHeight);
+                ctx.moveTo(0, i * scale);
+                ctx.lineTo(gridWidth, i * scale);
+            }
+            // 畫邊框
+            ctx.strokeRect(0, 0, gridWidth, gridHeight);
+            ctx.stroke();
+
+            // 4. 畫座標尺
+            ctx.fillStyle = '#9ca3af';
+            ctx.font = 'bold 14px monospace';
+            ctx.textAlign = 'center';
+            for (let i = 1; i <= currentSize; i++) {
+                if (i === 1 || i % 5 === 0) {
+                    // Top
+                    ctx.fillText(i, (i - 0.5) * scale, -15);
+                    // Left
+                    ctx.textAlign = 'right';
+                    ctx.fillText(i, -15, (i - 0.5) * scale + 5);
+                    ctx.textAlign = 'center';
+                }
+            }
+
+            // 5. 畫下方統計區域
+            if (sortedIds.length > 0) {
+                ctx.translate(0, gridHeight + 40);
+                
+                // 標題
+                ctx.fillStyle = '#4b5563';
+                ctx.font = 'bold 18px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText('顏色使用清單 (Bead Inventory)', 0, 0);
+                
+                ctx.font = '14px Arial';
+                let xIdx = 0;
+                let yIdx = 0;
+                sortedIds.forEach(id => {
+                    const x = xIdx * 160;
+                    const y = 30 + (yIdx * legendRowHeight);
+                    
+                    // 色塊
+                    ctx.fillStyle = findHexById(id);
+                    ctx.strokeStyle = '#e5e7eb';
+                    ctx.fillRect(x, y, 20, 20);
+                    ctx.strokeRect(x, y, 20, 20);
+                    
+                    // 文字
+                    ctx.fillStyle = '#1f2937';
+                    ctx.font = 'bold 14px monospace';
+                    ctx.fillText(`${id}: ${counts[id]} 顆`, x + 30, y + 15);
+                    
+                    xIdx++;
+                    if (xIdx >= 5) {
+                        xIdx = 0;
+                        yIdx++;
+                    }
+                });
+            }
+
+            // 下載
             const link = document.createElement('a');
-            link.download = `豆畫_${currentSize}x${currentSize}_${new Date().getTime()}.png`;
+            link.download = `豆畫工坊_拼豆圖紙_${currentSize}x${currentSize}.png`;
             link.href = canvas.toDataURL('image/png');
             link.click();
         }
