@@ -36,7 +36,13 @@
         /* 底圖 */
         #reference-image-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #ffffff; }
         #reference-image { max-width: none; transform-origin: center; opacity: 0.5; display: none; }
-
+        /* 左邊欄色塊樣式優化 */
+        .palette-btn { 
+            display: flex; align-items: center; justify-content: center; 
+            font-size: 10px; font-weight: 900; font-family: sans-serif;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
         .palette-btn.active { ring: 3px solid #3b82f6; transform: scale(1.1); z-index: 10; }
         .tool-btn.active { background-color: #3b82f6; color: white; border-color: #2563eb; }
         
@@ -167,27 +173,36 @@
         let isMouseDown = false; let currentTool = 'paint'; let gridState = {}; let undoStack = []; let isShowLabels = false;
         let refSettings = { opacity: 0.5, scale: 1, x: 0, y: 0 };
 
-        function initPalette() {
-            const container = document.getElementById('palette-container');
-            container.innerHTML = '';
-            for (const group in COLOR_DATA) {
-                const div = document.createElement('div');
-                div.innerHTML = `<h3 class="text-xs font-black text-stone-400 mb-2 px-1 uppercase tracking-widest">${group} 系列</h3>`;
-                const g = document.createElement('div');
-                g.className = 'grid grid-cols-5 gap-2 palette-grid';
-                for (const [id, hex] of Object.entries(COLOR_DATA[group])) {
-                    const b = document.createElement('button');
-                    b.className = `palette-btn w-10 h-10 rounded-md border border-stone-200 shadow-sm transition-all hover:scale-110`;
-                    b.style.backgroundColor = hex;
-                    b.id = `color-${id}`;
-                    b.onclick = () => { setTool('paint'); selectColor(id, hex); };
-                    g.appendChild(b);
-                }
-                div.appendChild(g);
-                container.appendChild(div);
-            }
-            selectColor("H7", "#000000");
+       function initPalette() {
+    const container = document.getElementById('palette-container');
+    container.innerHTML = '';
+    for (const group in COLOR_DATA) {
+        const groupDiv = document.createElement('div');
+        groupDiv.innerHTML = `<h3 class="text-xs font-black text-stone-400 mb-2 px-1 uppercase tracking-widest">${group} 系列</h3>`;
+        const grid = document.createElement('div');
+        grid.className = 'grid grid-cols-5 gap-2 palette-grid';
+        
+        for (const [id, hex] of Object.entries(COLOR_DATA[group])) {
+            const btn = document.createElement('button');
+            // 改動點 1：基礎樣式
+            btn.className = `palette-btn w-10 h-10 rounded-md border border-stone-200 shadow-sm`;
+            btn.style.backgroundColor = hex;
+            btn.id = `color-${id}`;
+            
+            // 改動點 2：直接在按鈕內寫入編號文字
+            btn.innerText = id; 
+            
+            // 改動點 3：根據背景深淺設定文字顏色（黑或白）
+            btn.style.color = getContrastYIQ(hex);
+            
+            btn.onclick = () => { setTool('paint'); selectColor(id, hex); };
+            grid.appendChild(btn);
         }
+        groupDiv.appendChild(grid);
+        container.appendChild(groupDiv);
+    }
+    selectColor("H7", "#000000");
+}
 
         function loadReferenceImage(e) {
             const f = e.target.files[0];
