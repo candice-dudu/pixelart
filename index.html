@@ -2,197 +2,153 @@
 <html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>豆畫工坊 - Pixel Art Studio</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>豆圖工坊 - Pixel Art Studio Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root {
-            --cell-size: 14px;
-        }
-
-        /* 禁止全域捲動，讓內部分區捲動 */
-        body {
-            overflow: hidden;
-            height: 100vh;
-        }
-
-        /* 自定義捲軸 */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        :root { --cell-size: 14px; }
+        body { overflow: hidden; height: 100vh; touch-action: manipulation; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-thumb { background: #d1d1d1; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
 
-        .canvas-grid {
-            display: grid;
-            background-color: #d1d5db;
-            gap: 1px;
-            border: 2px solid #4b5563;
-            user-select: none;
-            width: fit-content;
+        /* 佈局容器 */
+        .app-container { display: flex; height: calc(100vh - 80px); overflow: hidden; flex-direction: row; }
+        .sidebar { width: 300px; flex-shrink: 0; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; height: 100%; background: white; z-index: 40; }
+        .main-content { flex: 1; overflow: auto; padding: 2rem; display: flex; flex-direction: column; align-items: center; background: #f5f5f4; position: relative; }
+
+        /* 手機版適配 */
+        @media (max-width: 767px) {
+            header { height: auto !important; padding: 0.5rem !important; }
+            .app-container { flex-direction: column; height: calc(100vh - 120px); }
+            .sidebar { width: 100%; height: 180px; border-right: none; border-top: 1px solid #e5e7eb; order: 2; }
+            .main-content { order: 1; padding: 1rem; }
+            .palette-grid { display: flex !important; overflow-x: auto; white-space: nowrap; padding-bottom: 5px; gap: 4px; }
+            .palette-btn { flex-shrink: 0; width: 40px !important; height: 40px !important; }
+            .control-panel { flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
         }
 
-        .pixel-cell {
-            background-color: #ffffff;
-            width: var(--cell-size);
-            height: var(--cell-size);
-            cursor: crosshair;
-            transition: background-color 0.05s;
-        }
-
-        .pixel-cell:hover { filter: brightness(0.9); }
-
-        /* 強化網格線 (每10格) */
+        .canvas-grid { display: grid; gap: 0px; border: 2px solid #4b5563; user-select: none; width: fit-content; position: relative; z-index: 10; background-color: transparent; }
+        .pixel-cell { width: var(--cell-size); height: var(--cell-size); cursor: crosshair; display: flex; align-items: center; justify-content: center; font-family: monospace; font-weight: bold; pointer-events: auto; box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.15); box-sizing: border-box; }
         .thick-border-right { border-right: 2px solid #4b5563 !important; }
         .thick-border-bottom { border-bottom: 2px solid #4b5563 !important; }
 
-        .palette-btn.active {
-            ring: 3px solid #3b82f6;
-            transform: scale(1.1);
-            z-index: 10;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-        }
+        /* 底圖 */
+        #reference-image-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #ffffff; }
+        #reference-image { max-width: none; transform-origin: center; opacity: 0.5; display: none; }
 
-        .tool-btn.active {
-            background-color: #3b82f6;
-            color: white;
-            border-color: #2563eb;
-        }
-
-        /* 座標尺對齊 */
-        .ruler-container-top {
-            display: grid;
-            gap: 1px;
-            margin-left: 34px;
-        }
-
-        .ruler-container-left {
-            display: grid;
-            gap: 1px;
-            width: 32px;
-        }
-
-        .ruler-label {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 9px;
-            color: #9ca3af;
-            font-family: monospace;
-            font-weight: bold;
-        }
-
-        .inventory-card {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 12px;
-            background: #f8fafc;
-            border-radius: 6px;
-            font-size: 14px;
-            border: 1px solid #e2e8f0;
-        }
+        .palette-btn.active { ring: 3px solid #3b82f6; transform: scale(1.1); z-index: 10; }
+        .tool-btn.active { background-color: #3b82f6; color: white; border-color: #2563eb; }
+        
+        .ruler-container-top { display: grid; gap: 0px; margin-left: 34px; }
+        .ruler-container-left { display: grid; gap: 0px; width: 32px; }
+        .ruler-label { display: flex; align-items: center; justify-content: center; font-size: 9px; color: #9ca3af; font-weight: bold; }
+        
+        .cell-label { font-size: calc(var(--cell-size) * 0.45); display: none; text-shadow: 0px 0px 2px rgba(255,255,255,0.8); pointer-events: none; }
+        .show-labels .cell-label { display: block; }
+        
+        .scale-input { width: 50px; padding: 1px 4px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 10px; text-align: center; font-weight: bold; }
+        .control-label { font-size: 9px; font-weight: 800; color: #9ca3af; text-transform: uppercase; margin-right: 2px; }
     </style>
 </head>
 <body class="bg-stone-100 text-stone-800 flex flex-col">
 
-    <!-- Header: 固定高度 -->
-    <header class="h-16 bg-white border-b border-stone-200 px-4 shadow-sm flex flex-none justify-between items-center z-30">
-        <div class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-lg">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 1.912 5.886h6.188l-5.004 3.636 1.912 5.886L12 14.772l-5.008 3.636 1.912-5.886L3.9 8.886h6.188L12 3z"/></svg>
+    <!-- Header 頂部控制列 -->
+    <header class="min-h-20 bg-white border-b border-stone-200 px-4 shadow-sm flex flex-none flex-wrap justify-between items-center z-30 py-2 control-panel">
+        <div class="flex items-center gap-2 flex-none">
+            <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 1.912 5.886h6.188l-5.004 3.636 1.912 5.886L12 14.772l-5.008 3.636 1.912-5.886L3.9 8.886h6.188L12 3z"/></svg>
             </div>
-            <div>
-                <h1 class="text-xl font-bold tracking-tight text-indigo-900">豆畫工坊 <span class="text-indigo-500 font-normal">Pro</span></h1>
+            <h1 class="text-sm font-black text-indigo-900 uppercase tracking-tighter hidden sm:block">豆圖工坊Pro</h1>
+        </div>
+
+        <!-- 底圖控制區 -->
+        <div class="flex flex-col gap-1 bg-stone-50 p-1.5 px-3 rounded-xl border border-stone-200 shadow-inner">
+            <div class="flex items-center gap-3">
+                <div class="flex items-center">
+                    <input type="file" id="ref-upload" accept="image/*" class="hidden" onchange="loadReferenceImage(event)">
+                    <button onclick="document.getElementById('ref-upload').click()" class="bg-white border px-2 py-0.5 rounded text-[10px] font-bold shadow-sm hover:bg-stone-100">上傳底圖</button>
+                    <button onclick="removeReferenceImage()" class="ml-1 text-rose-400 hover:text-rose-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                </div>
+                <div class="flex items-center gap-1">
+                    <span class="control-label">透明</span>
+                    <input type="range" id="opacity-slider" min="0" max="1" step="0.05" value="0.5" class="w-12 h-1 cursor-pointer" oninput="updateRefStyle('opacity', this.value)">
+                </div>
+                <div class="flex items-center">
+                    <span class="control-label">縮放</span>
+                    <input type="number" id="scale-number" min="10" max="500" step="0.1" value="100" class="scale-input" oninput="updateRefStyle('scalePercent', this.value)">
+                    <span class="text-[9px] font-bold text-stone-400 ml-0.5">%</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-3 justify-between">
+                <div class="flex items-center gap-1">
+                    <span class="control-label">左右</span>
+                    <input type="range" id="x-slider" min="-500" max="500" step="1" value="0" class="w-20 h-1 cursor-pointer" oninput="updateRefStyle('x', this.value)">
+                </div>
+                <div class="flex items-center gap-1">
+                    <span class="control-label">上下</span>
+                    <input type="range" id="y-slider" min="-500" max="500" step="1" value="0" class="w-20 h-1 cursor-pointer" oninput="updateRefStyle('y', this.value)">
+                </div>
             </div>
         </div>
 
-        <div class="flex items-center gap-2 md:gap-4">
+        <!-- 功能按鈕區 -->
+        <div class="flex items-center gap-2 flex-none">
             <div class="flex bg-stone-200 p-1 rounded-lg">
-                <button onclick="changeCanvasSize(52)" id="size-52" class="px-3 md:px-4 py-1.5 rounded-md text-xs md:text-sm font-bold transition-all bg-white shadow-sm">52x52</button>
-                <button onclick="changeCanvasSize(74)" id="size-74" class="px-3 md:px-4 py-1.5 rounded-md text-xs md:text-sm font-bold transition-all text-stone-500 hover:text-stone-700">74x74</button>
+                <button onclick="changeCanvasSize(52)" id="size-52" class="px-3 py-1 rounded-md text-xs font-bold transition-all bg-white shadow-sm">52</button>
+                <button onclick="changeCanvasSize(74)" id="size-74" class="px-3 py-1 rounded-md text-xs font-bold transition-all text-stone-500">74</button>
             </div>
-            
-            <div class="h-8 w-px bg-stone-200"></div>
-
-            <button onclick="undo()" class="flex items-center gap-1 px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-xs font-bold hover:bg-stone-50 transition-all active:translate-y-0.5">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
-                復原
-            </button>
-
-            <button onclick="exportImage()" class="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-all shadow-md active:scale-95">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                下載圖片 (含統計)
-            </button>
-
-            <button onclick="clearCanvas()" class="px-3 py-1.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-lg text-xs font-bold hover:bg-rose-100 transition-all">清空</button>
+            <!-- 搬返黎呢度 -->
+            <button id="toggle-label-btn" onclick="toggleLabels()" class="px-3 py-1.5 bg-stone-100 border border-stone-300 rounded-lg text-xs font-bold hover:bg-stone-200 transition-all">編號: 關</button>
+            <button onclick="undo()" class="px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-xs font-bold shadow-sm active:translate-y-0.5">復原</button>
+            <button onclick="exportImage()" class="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold shadow-md hover:bg-indigo-700">下載圖紙</button>
+            <button onclick="clearCanvas()" class="px-2 py-1.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-lg text-xs font-bold">清空</button>
         </div>
     </header>
 
-    <!-- 主體內容區：撐滿剩餘高度 -->
-    <main class="flex flex-1 overflow-hidden">
-        
-        <!-- 左側邊欄：獨立捲動 -->
-        <aside class="w-72 bg-white border-r border-stone-200 flex flex-col h-full shadow-lg z-20 flex-none overflow-hidden">
-            <!-- 工具切換 -->
-            <div class="p-4 border-b border-stone-100 grid grid-cols-2 gap-2 flex-none">
-                <button id="tool-paint" onclick="setTool('paint')" class="tool-btn active flex items-center justify-center gap-2 py-2 border rounded-lg font-bold text-sm transition-all shadow-sm">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l5 5"/><path d="M11 11l1 1"/></svg>
-                    畫筆
-                </button>
-                <button id="tool-eraser" onclick="setTool('eraser')" class="tool-btn flex items-center justify-center gap-2 py-2 border rounded-lg font-bold text-sm transition-all shadow-sm">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21Z"/><path d="m22 21-10-10"/><path d="m5 11 9 9"/></svg>
-                    橡皮擦
-                </button>
+    <div class="app-container">
+        <!-- 側邊欄 -->
+        <aside class="sidebar shadow-xl">
+            <div class="p-3 border-b grid grid-cols-3 gap-2 flex-none">
+                <button id="tool-paint" onclick="setTool('paint')" class="tool-btn active flex flex-col items-center py-2 border rounded-lg font-bold text-[10px] shadow-sm">畫筆</button>
+                <button id="tool-bucket" onclick="setTool('bucket')" class="tool-btn flex flex-col items-center py-2 border rounded-lg font-bold text-[10px] shadow-sm">倒油</button>
+                <button id="tool-eraser" onclick="setTool('eraser')" class="tool-btn flex flex-col items-center py-2 border rounded-lg font-bold text-[10px] shadow-sm">抹走</button>
             </div>
+            <div class="p-3 border-b bg-stone-50 flex items-center justify-around flex-none">
+                <div id="current-color-preview" class="w-12 h-12 rounded-lg border-2 border-white shadow-md"></div>
+                <div class="text-center">
+                    <div id="current-color-id" class="font-bold text-lg leading-none text-indigo-900">未選</div>
+                    <div id="current-color-hex" class="text-[9px] text-stone-400 font-mono uppercase mt-1">#FFFFFF</div>
+                </div>
+            </div>
+            <div id="palette-container" class="flex-1 overflow-y-auto p-3 space-y-5"></div>
+        </aside>
 
-            <!-- 當前顏色資訊 -->
-            <div class="p-4 border-b border-stone-100 bg-stone-50 flex-none">
-                <div class="flex items-center gap-3">
-                    <div id="current-color-preview" class="w-12 h-12 rounded-lg border-2 border-white shadow-md"></div>
-                    <div>
-                        <div id="current-color-id" class="font-bold text-lg leading-none">未選擇</div>
-                        <div id="current-color-hex" class="text-xs text-stone-400 font-mono">#FFFFFF</div>
+        <!-- 主內容區 -->
+        <main class="main-content">
+            <div id="canvas-wrapper" class="inline-block bg-white p-4 shadow-2xl rounded-sm mb-8 relative flex-none">
+                <div id="top-ruler" class="ruler-container-top"></div>
+                <div class="flex relative">
+                    <div id="left-ruler" class="ruler-container-left"></div>
+                    <div class="relative">
+                        <div id="grid" class="canvas-grid"></div>
+                        <div id="reference-image-container"><img id="reference-image" src="" alt=""></div>
                     </div>
                 </div>
             </div>
-            
-            <!-- 顏色列表：此區塊獨立捲動 -->
-            <div id="palette-container" class="flex-1 overflow-y-auto p-4 space-y-6">
-                <!-- 由 JS 填充 -->
-            </div>
-        </aside>
-
-        <!-- 右側畫布區：獨立捲動 -->
-        <section class="flex-1 overflow-auto p-4 md:p-12 flex flex-col items-center">
-            
-            <!-- 畫布與尺規容器 -->
-            <div id="canvas-wrapper" class="inline-block bg-white p-4 shadow-2xl rounded-sm mb-12 flex-none">
-                <div id="top-ruler" class="ruler-container-top"></div>
-                <div class="flex">
-                    <div id="left-ruler" class="ruler-container-left"></div>
-                    <div id="grid" class="canvas-grid"></div>
+            <!-- 用量統計 -->
+            <div class="w-full max-w-4xl bg-white rounded-xl shadow-sm border p-6 mb-20 flex-none">
+                <div class="flex justify-between mb-4 border-b pb-2 font-bold text-stone-600">
+                    <span>顏色用量統計</span>
+                    <span id="total-beads" class="text-indigo-600 uppercase text-xs">總計: 0 顆</span>
                 </div>
+                <div id="inventory-list" class="flex flex-wrap gap-3 text-sm font-bold"></div>
             </div>
-
-            <!-- 顏色用量統計 -->
-            <div class="w-full max-w-4xl bg-white rounded-xl shadow-sm border border-stone-200 p-6 mb-20 flex-none">
-                <div class="flex items-center justify-between mb-4 border-b pb-2">
-                    <h3 class="font-bold text-stone-600 flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-7 7-4-4"/></svg>
-                        顏色用量統計
-                    </h3>
-                    <span id="total-beads" class="text-xs font-bold bg-indigo-100 px-2 py-1 rounded text-indigo-600 uppercase">總計: 0 顆</span>
-                </div>
-                <div id="inventory-list" class="flex flex-wrap gap-3 text-stone-600 text-sm">
-                    畫布上目前沒有顏色...
-                </div>
-            </div>
-        </section>
-
-    </main>
+        </main>
+    </div>
 
     <script>
-        // 顏色數據庫 (A-R 系列)
         const COLOR_DATA = {
             "A": { "A1": "#FAF4C8", "A2": "#FFFFD5", "A3": "#FEFF8B", "A4": "#FBED56", "A5": "#F4D738", "A6": "#FEAC4C", "A7": "#FE8B4C", "A8": "#FFDA45", "A9": "#FF995B", "A10": "#F77C31", "A11": "#FFDD99", "A12": "#FE9F72", "A13": "#FFC365", "A14": "#FD543D", "A15": "#FFF365", "A16": "#FFFF9F", "A17": "#FFE36E", "A18": "#FEBE7D", "A19": "#FD7C72", "A20": "#FFD568", "A21": "#FFE395", "A22": "#F4F57D", "A23": "#E6C9B7", "A24": "#F7F8A2", "A25": "#FFD67D", "A26": "#FFC830" },
             "B": { "B1": "#E6EE31", "B2": "#63F347", "B3": "#9EF780", "B4": "#5DE035", "B5": "#35E352", "B6": "#65E2A6", "B7": "#3DAF80", "B8": "#1C9C4F", "B9": "#27523A", "B10": "#95D3C2", "B11": "#5D722A", "B12": "#166F41", "B13": "#CAEB7B", "B14": "#ADE946", "B15": "#2E5132", "B16": "#C5ED9C", "B17": "#9BB13A", "B18": "#E6EE49", "B19": "#24B88C", "B20": "#C2F0CC", "B21": "#156A6B", "B22": "#0B3C43", "B23": "#303A21", "B24": "#EEFCA5", "B25": "#4E846D", "B26": "#8D7A35", "B27": "#CCE1AF", "B28": "#9EE5B9", "B29": "#C5E254", "B30": "#E2FCB1", "B31": "#B0E792", "B32": "#9CAB5A" },
@@ -206,309 +162,303 @@
             "R": { "R1": "#D50D21", "R2": "#F92F83", "R3": "#FD8324", "R4": "#F8EC31", "R5": "#35C75B", "R6": "#238891", "R7": "#19779D", "R8": "#1A60C3", "R9": "#9A56B4", "R10": "#FFDB4C", "R11": "#FFEBFB", "R12": "#D8D5CE", "R13": "#55514C", "R14": "#9FE4DF", "R15": "#77CEE9", "R16": "#3ECFCA", "R17": "#4A867A", "R18": "#7FCD9D", "R19": "#CDE55D", "R20": "#E8C7B4", "R21": "#AD6F3C", "R22": "#6C372F", "R23": "#FEB872", "R24": "#F3C1C0", "R25": "#C9675E", "R26": "#D293BE", "R27": "#EA8CB1", "R28": "#9C87D6" }
         };
 
-        let currentSize = 52;
-        let selectedColorHex = "#000000";
-        let selectedColorId = "H7";
-        let isMouseDown = false;
-        let currentTool = 'paint'; 
-        let gridState = {}; 
-        let undoStack = []; 
-        const maxUndo = 50;
-
-        const grid = document.getElementById('grid');
-        const paletteContainer = document.getElementById('palette-container');
-        const inventoryList = document.getElementById('inventory-list');
+        let currentSize = 52; let selectedColorHex = "#000000"; let selectedColorId = "H7";
+        let isMouseDown = false; let currentTool = 'paint'; let gridState = {}; let undoStack = []; let isShowLabels = false;
+        let refSettings = { opacity: 0.5, scale: 1, x: 0, y: 0 };
 
         function initPalette() {
-            paletteContainer.innerHTML = '';
+            const container = document.getElementById('palette-container');
+            container.innerHTML = '';
             for (const group in COLOR_DATA) {
-                const groupDiv = document.createElement('div');
-                groupDiv.innerHTML = `<h3 class="text-xs font-black text-stone-400 mb-2 px-1 uppercase tracking-widest">${group} 系列</h3>`;
-                const colorGrid = document.createElement('div');
-                colorGrid.className = 'grid grid-cols-5 gap-2';
+                const div = document.createElement('div');
+                div.innerHTML = `<h3 class="text-xs font-black text-stone-400 mb-2 px-1 uppercase tracking-widest">${group} 系列</h3>`;
+                const g = document.createElement('div');
+                g.className = 'grid grid-cols-5 gap-2 palette-grid';
                 for (const [id, hex] of Object.entries(COLOR_DATA[group])) {
-                    const btn = document.createElement('button');
-                    btn.className = `palette-btn w-10 h-10 rounded-md border border-stone-200 shadow-sm transition-all hover:scale-110 active:scale-95`;
-                    btn.style.backgroundColor = hex;
-                    btn.id = `color-${id}`;
-                    btn.onclick = () => {
-                        setTool('paint');
-                        selectColor(id, hex);
-                    };
-                    colorGrid.appendChild(btn);
+                    const b = document.createElement('button');
+                    b.className = `palette-btn w-10 h-10 rounded-md border border-stone-200 shadow-sm transition-all hover:scale-110`;
+                    b.style.backgroundColor = hex;
+                    b.id = `color-${id}`;
+                    b.onclick = () => { setTool('paint'); selectColor(id, hex); };
+                    g.appendChild(b);
                 }
-                groupDiv.appendChild(colorGrid);
-                paletteContainer.appendChild(groupDiv);
+                div.appendChild(g);
+                container.appendChild(div);
             }
             selectColor("H7", "#000000");
         }
 
-        function setTool(tool) {
-            currentTool = tool;
-            document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
-            document.getElementById(`tool-${tool}`).classList.add('active');
+        function loadReferenceImage(e) {
+            const f = e.target.files[0];
+            if (f) {
+                const r = new FileReader();
+                r.onload = (ev) => {
+                    const img = document.getElementById('reference-image');
+                    img.src = ev.target.result; img.style.display = "block";
+                    resetRefSettings();
+                };
+                r.readAsDataURL(f);
+            }
+        }
+
+        function resetRefSettings() {
+            refSettings = { opacity: 0.5, scale: 1, x: 0, y: 0 };
+            document.getElementById('opacity-slider').value = 0.5;
+            document.getElementById('scale-number').value = 100;
+            document.getElementById('x-slider').value = 0;
+            document.getElementById('y-slider').value = 0;
+            applyRefStyle();
+        }
+
+        function updateRefStyle(t, v) {
+            if (t === 'scalePercent') refSettings.scale = parseFloat(v) / 100;
+            else refSettings[t] = parseFloat(v);
+            applyRefStyle();
+        }
+
+        function applyRefStyle() {
+            const i = document.getElementById('reference-image');
+            i.style.opacity = refSettings.opacity;
+            i.style.transform = `scale(${refSettings.scale}) translate(${refSettings.x}px, ${refSettings.y}px)`;
+        }
+
+        function removeReferenceImage() {
+            const i = document.getElementById('reference-image');
+            i.src = ""; i.style.display = "none";
+            document.getElementById('ref-upload').value = "";
+        }
+
+        function toggleLabels() {
+            isShowLabels = !isShowLabels;
+            document.getElementById('grid').classList.toggle('show-labels', isShowLabels);
+            document.getElementById('toggle-label-btn').innerText = `編號: ${isShowLabels ? '開' : '關'}`;
+            document.getElementById('toggle-label-btn').classList.toggle('bg-indigo-600', isShowLabels);
+            document.getElementById('toggle-label-btn').classList.toggle('text-white', isShowLabels);
+        }
+
+        function getContrastYIQ(hex){
+            hex = hex.replace("#", "");
+            const r = parseInt(hex.substr(0,2),16);
+            const g = parseInt(hex.substr(2,2),16);
+            const b = parseInt(hex.substr(4,2),16);
+            return ((r*299)+(g*587)+(b*114))/1000 >= 128 ? 'black' : 'white';
+        }
+
+        function setTool(t) {
+            currentTool = t;
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`tool-${t}`).classList.add('active');
         }
 
         function selectColor(id, hex) {
-            selectedColorId = id;
-            selectedColorHex = hex;
+            selectedColorId = id; selectedColorHex = hex;
             document.getElementById('current-color-preview').style.backgroundColor = hex;
             document.getElementById('current-color-id').innerText = id;
             document.getElementById('current-color-hex').innerText = hex.toUpperCase();
             document.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('active'));
-            const activeBtn = document.getElementById(`color-${id}`);
-            if (activeBtn) activeBtn.classList.add('active');
-        }
-
-        function saveHistory() {
-            undoStack.push(JSON.stringify(gridState));
-            if (undoStack.length > maxUndo) undoStack.shift();
+            const a = document.getElementById(`color-${id}`); if (a) a.classList.add('active');
         }
 
         function undo() {
             if (undoStack.length === 0) return;
             gridState = JSON.parse(undoStack.pop());
-            document.querySelectorAll('.pixel-cell').forEach((cell, i) => {
-                const colorId = gridState[i];
-                cell.style.backgroundColor = colorId ? findHexById(colorId) : '#ffffff';
+            syncCanvas();
+        }
+
+        function syncCanvas() {
+            const cells = document.querySelectorAll('.pixel-cell');
+            cells.forEach((c, i) => {
+                const id = gridState[i]; const l = c.querySelector('.cell-label');
+                if (id) {
+                    const h = findHexById(id); c.style.backgroundColor = h;
+                    l.innerText = id; l.style.color = getContrastYIQ(h);
+                } else { c.style.backgroundColor = 'transparent'; l.innerText = ''; }
             });
             updateInventoryUI();
         }
 
         function findHexById(id) {
-            for (const g in COLOR_DATA) {
-                if (COLOR_DATA[g][id]) return COLOR_DATA[g][id];
-            }
+            for (const g in COLOR_DATA) { if (COLOR_DATA[g][id]) return COLOR_DATA[g][id]; }
             return "#ffffff";
         }
 
         function initCanvas(size) {
-            currentSize = size;
-            grid.innerHTML = '';
-            document.getElementById('top-ruler').innerHTML = '';
-            document.getElementById('left-ruler').innerHTML = '';
-            gridState = {};
-            undoStack = [];
+            currentSize = size; const g = document.getElementById('grid'); g.innerHTML = '';
+            document.getElementById('top-ruler').innerHTML = ''; document.getElementById('left-ruler').innerHTML = '';
+            gridState = {}; undoStack = [];
+            const cs = size === 52 ? '14px' : '10px';
+            document.documentElement.style.setProperty('--cell-size', cs);
+            g.style.gridTemplateColumns = `repeat(${size}, ${cs})`;
             
-            const cellSize = size === 52 ? '14px' : '10px';
-            document.documentElement.style.setProperty('--cell-size', cellSize);
-
-            grid.style.gridTemplateColumns = `repeat(${size}, var(--cell-size))`;
-            const topRuler = document.getElementById('top-ruler');
-            topRuler.style.gridTemplateColumns = `repeat(${size}, var(--cell-size))`;
-            const leftRuler = document.getElementById('left-ruler');
-            leftRuler.style.gridTemplateRows = `repeat(${size}, var(--cell-size))`;
+            const tr = document.getElementById('top-ruler'); tr.style.gridTemplateColumns = `repeat(${size}, ${cs})`;
+            const lr = document.getElementById('left-ruler'); lr.style.gridTemplateRows = `repeat(${size}, ${cs})`;
 
             for (let i = 1; i <= size; i++) {
-                const labelT = document.createElement('div');
-                labelT.className = `ruler-label`;
-                labelT.innerText = i % 5 === 0 || i === 1 ? i : '';
-                topRuler.appendChild(labelT);
-                
-                const labelL = document.createElement('div');
-                labelL.className = `ruler-label`;
-                labelL.innerText = i % 5 === 0 || i === 1 ? i : '';
-                leftRuler.appendChild(labelL);
+                const lt = document.createElement('div'); lt.className = 'ruler-label'; lt.innerText = i%5===0||i===1?i:''; tr.appendChild(lt);
+                const ll = document.createElement('div'); ll.className = 'ruler-label'; ll.innerText = i%5===0||i===1?i:''; lr.appendChild(ll);
             }
 
-            const fragment = document.createDocumentFragment();
+            const f = document.createDocumentFragment();
             for (let i = 0; i < size * size; i++) {
-                const row = Math.floor(i / size) + 1;
-                const col = (i % size) + 1;
-                const cell = document.createElement('div');
-                cell.className = 'pixel-cell';
-                if (col % 10 === 0 && col !== size) cell.classList.add('thick-border-right');
-                if (row % 10 === 0 && row !== size) cell.classList.add('thick-border-bottom');
-
+                const r = Math.floor(i / size) + 1; const c = i % size + 1;
+                const cell = document.createElement('div'); cell.className = 'pixel-cell';
+                if (c % 10 === 0 && c !== size) cell.classList.add('thick-border-right');
+                if (r % 10 === 0 && r !== size) cell.classList.add('thick-border-bottom');
+                const l = document.createElement('span'); l.className = 'cell-label'; cell.appendChild(l);
+                
                 cell.onmousedown = (e) => {
-                    saveHistory();
-                    isMouseDown = true;
-                    paintCell(cell, i);
+                    undoStack.push(JSON.stringify(gridState)); if (undoStack.length > 50) undoStack.shift();
+                    if (currentTool === 'bucket') { floodFill(i, gridState[i], selectedColorId); syncCanvas(); }
+                    else { isMouseDown = true; paintCell(cell, i); }
                 };
                 cell.onmouseenter = () => { if (isMouseDown) paintCell(cell, i); };
-                fragment.appendChild(cell);
+                f.appendChild(cell);
             }
-            grid.appendChild(fragment);
+            g.appendChild(f); updateInventoryUI();
+            removeReferenceImage();
+        }
+
+        function paintCell(c, i) {
+            const l = c.querySelector('.cell-label');
+            if (currentTool === 'paint') {
+                gridState[i] = selectedColorId; c.style.backgroundColor = selectedColorHex;
+                l.innerText = selectedColorId; l.style.color = getContrastYIQ(selectedColorHex);
+            } else if (currentTool === 'eraser') {
+                delete gridState[i]; c.style.backgroundColor = 'transparent'; l.innerText = '';
+            }
             updateInventoryUI();
         }
 
-        function paintCell(cell, index) {
-            if (currentTool === 'paint') {
-                gridState[index] = selectedColorId;
-                cell.style.backgroundColor = selectedColorHex;
-            } else {
-                delete gridState[index];
-                cell.style.backgroundColor = '#ffffff';
+        function floodFill(idx, target, replacement) {
+            if (target === replacement) return;
+            const stack = [idx];
+            while (stack.length > 0) {
+                const c = stack.pop();
+                if (gridState[c] === target) {
+                    gridState[c] = replacement;
+                    const r = Math.floor(c / currentSize); const col = c % currentSize;
+                    if (r > 0) stack.push(c - currentSize);
+                    if (r < currentSize - 1) stack.push(c + currentSize);
+                    if (col > 0) stack.push(c - 1);
+                    if (col < currentSize - 1) stack.push(c + 1);
+                }
             }
-            updateInventoryUI();
         }
 
         function updateInventoryUI() {
-            const counts = {};
-            Object.values(gridState).forEach(id => counts[id] = (counts[id] || 0) + 1);
-            const sortedIds = Object.keys(counts).sort();
-            
-            if (sortedIds.length === 0) {
-                inventoryList.innerHTML = '畫布上目前沒有顏色...';
-                document.getElementById('total-beads').innerText = `總計: 0 顆`;
-                return;
-            }
-
-            let total = 0;
-            inventoryList.innerHTML = '';
-            sortedIds.forEach(id => {
-                total += counts[id];
-                const hex = findHexById(id);
+            const counts = {}; Object.values(gridState).forEach(id => counts[id] = (counts[id] || 0) + 1);
+            const list = document.getElementById('inventory-list');
+            const totalSpan = document.getElementById('total-beads');
+            const ids = Object.keys(counts).sort();
+            if (ids.length === 0) { list.innerHTML = '無顏色'; totalSpan.innerText = '總計: 0 顆'; return; }
+            let total = 0; list.innerHTML = '';
+            ids.forEach(id => {
+                total += counts[id]; const h = findHexById(id);
                 const item = document.createElement('div');
-                item.className = 'inventory-card shadow-sm';
-                item.innerHTML = `<span class="w-4 h-4 rounded-sm border border-stone-200 shadow-inner flex-shrink-0" style="background-color:${hex}"></span><b class="text-stone-700 font-bold">${id}</b><span class="text-indigo-500 font-mono text-xs font-bold">${counts[id]}</span>`;
-                inventoryList.appendChild(item);
+                item.className = 'flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border shadow-sm';
+                item.innerHTML = `<span class="w-4 h-4 rounded-sm border" style="background-color:${h}"></span><b>${id}</b><span class="text-indigo-500 font-mono text-xs ml-1">${counts[id]}</span>`;
+                list.appendChild(item);
             });
-            document.getElementById('total-beads').innerText = `總計: ${total} 顆`;
+            totalSpan.innerText = `總計: ${total} 顆`;
         }
 
-        function changeCanvasSize(size) {
-            if (confirm(`切換到 ${size}x${size} 會清空目前進度，確定嗎？`)) {
-                document.getElementById('size-52').classList.toggle('bg-white', size === 52);
-                document.getElementById('size-74').classList.toggle('bg-white', size === 74);
-                initCanvas(size);
+        function changeCanvasSize(s) {
+            if (confirm(`切換 ${s}x${s} 會清空進度？`)) {
+                document.getElementById('size-52').classList.toggle('bg-white', s===52);
+                document.getElementById('size-74').classList.toggle('bg-white', s===74);
+                initCanvas(s);
             }
         }
 
-        function clearCanvas() {
-            if (confirm('確定要清空整張畫布嗎？')) {
-                saveHistory();
-                document.querySelectorAll('.pixel-cell').forEach(cell => cell.style.backgroundColor = '#ffffff');
-                gridState = {};
-                updateInventoryUI();
-            }
-        }
+        function clearCanvas() { if (confirm('清空畫布？')) { undoStack.push(JSON.stringify(gridState)); gridState = {}; syncCanvas(); } }
 
-        // 核心更新：匯出圖片 (含格線、座標與統計)
+        // --- 修正版導出功能：確保字體正確 ---
         async function exportImage() {
-            const scale = 20; // 單格 20px，確保高清
-            const offset = 60; // 邊距 (放置座標尺)
-            const gridWidth = currentSize * scale;
-            const gridHeight = currentSize * scale;
-
-            // 統計使用的顏色
-            const counts = {};
-            Object.values(gridState).forEach(id => counts[id] = (counts[id] || 0) + 1);
+            const scale = 30; const offset = 100;
+            const gridWidth = currentSize * scale; const gridHeight = currentSize * scale;
+            const counts = {}; Object.values(gridState).forEach(id => counts[id] = (counts[id] || 0) + 1);
             const sortedIds = Object.keys(counts).sort();
             
-            // 計算統計區域高度 (每行放 5 個顏色)
-            const legendRowHeight = 40;
+            const legendRowHeight = 60;
             const legendRows = Math.ceil(sortedIds.length / 5);
-            const legendHeight = (legendRows > 0 ? (legendRows * legendRowHeight) + 80 : 0);
+            const legendHeight = (legendRows > 0 ? (legendRows * legendRowHeight) + 120 : 0);
 
             const canvas = document.createElement('canvas');
-            canvas.width = gridWidth + offset + 40; // 加右邊距
+            canvas.width = gridWidth + offset + 60;
             canvas.height = gridHeight + offset + legendHeight;
             const ctx = canvas.getContext('2d');
 
-            // 1. 背景
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#1e1b4b'; ctx.font = 'bold 28px Arial';
+            ctx.fillText(`拼豆專用圖紙 (${currentSize}x${currentSize})`, 40, 50);
 
-            // 2. 繪製豆子與網格
             ctx.translate(offset, offset);
             
-            // 先畫背景格線 (細線)
-            ctx.strokeStyle = '#d1d5db';
-            ctx.lineWidth = 1;
+            // 豆子
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            for (let i = 0; i < currentSize * currentSize; i++) {
+                const id = gridState[i];
+                if (id) {
+                    const r = Math.floor(i / currentSize); const c = i % currentSize;
+                    const h = findHexById(id); ctx.fillStyle = h;
+                    ctx.fillRect(c * scale, r * scale, scale, scale);
+                    // 導出時如果開啟了編號就印字
+                    if (isShowLabels) {
+                        ctx.fillStyle = getContrastYIQ(h); 
+                        ctx.font = `bold ${scale * 0.35}px Arial`;
+                        ctx.fillText(id, (c + 0.5) * scale, (r + 0.5) * scale);
+                    }
+                }
+            }
+
+            // 格線
+            ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1;
             ctx.beginPath();
             for (let i = 0; i <= currentSize; i++) {
-                ctx.moveTo(i * scale, 0);
-                ctx.lineTo(i * scale, gridHeight);
-                ctx.moveTo(0, i * scale);
-                ctx.lineTo(gridWidth, i * scale);
+                ctx.moveTo(i * scale, 0); ctx.lineTo(i * scale, gridHeight);
+                ctx.moveTo(0, i * scale); ctx.lineTo(gridWidth, i * scale);
             }
             ctx.stroke();
 
-            // 畫豆子
-            for (let i = 0; i < currentSize * currentSize; i++) {
-                const colorId = gridState[i];
-                if (colorId) {
-                    const row = Math.floor(i / currentSize);
-                    const col = i % currentSize;
-                    ctx.fillStyle = findHexById(colorId);
-                    ctx.fillRect(col * scale + 0.5, row * scale + 0.5, scale - 1, scale - 1);
-                }
-            }
-
-            // 3. 畫 10 格粗線
-            ctx.strokeStyle = '#4b5563';
-            ctx.lineWidth = 2;
+            // 粗線
+            ctx.strokeStyle = '#4b5563'; ctx.lineWidth = 2;
             ctx.beginPath();
             for (let i = 0; i <= currentSize; i += 10) {
-                ctx.moveTo(i * scale, 0);
-                ctx.lineTo(i * scale, gridHeight);
-                ctx.moveTo(0, i * scale);
-                ctx.lineTo(gridWidth, i * scale);
+                ctx.moveTo(i * scale, 0); ctx.lineTo(i * scale, gridHeight);
+                ctx.moveTo(0, i * scale); ctx.lineTo(gridWidth, i * scale);
             }
-            // 畫邊框
-            ctx.strokeRect(0, 0, gridWidth, gridHeight);
-            ctx.stroke();
+            ctx.strokeRect(0, 0, gridWidth, gridHeight); ctx.stroke();
 
-            // 4. 畫座標尺
-            ctx.fillStyle = '#9ca3af';
-            ctx.font = 'bold 14px monospace';
-            ctx.textAlign = 'center';
+            // 尺規
+            ctx.fillStyle = '#6b7280'; ctx.font = 'bold 18px Arial';
             for (let i = 1; i <= currentSize; i++) {
                 if (i === 1 || i % 5 === 0) {
-                    // Top
-                    ctx.fillText(i, (i - 0.5) * scale, -15);
-                    // Left
-                    ctx.textAlign = 'right';
-                    ctx.fillText(i, -15, (i - 0.5) * scale + 5);
-                    ctx.textAlign = 'center';
+                    ctx.textAlign = 'center'; ctx.fillText(i, (i - 0.5) * scale, -20);
+                    ctx.textAlign = 'right'; ctx.fillText(i, -20, (i - 0.5) * scale + 5);
                 }
             }
 
-            // 5. 畫下方統計區域
+            // 統計
             if (sortedIds.length > 0) {
-                ctx.translate(0, gridHeight + 40);
-                
-                // 標題
-                ctx.fillStyle = '#4b5563';
-                ctx.font = 'bold 18px Arial';
-                ctx.textAlign = 'left';
-                ctx.fillText('顏色使用清單 (Bead Inventory)', 0, 0);
-                
-                ctx.font = '14px Arial';
-                let xIdx = 0;
-                let yIdx = 0;
+                ctx.translate(0, gridHeight + 60); ctx.fillStyle = '#4b5563'; ctx.font = 'bold 22px Arial';
+                ctx.textAlign = 'left'; ctx.fillText('顏色使用清單', 0, 0);
+                let xIdx = 0; let yIdx = 0;
                 sortedIds.forEach(id => {
-                    const x = xIdx * 160;
-                    const y = 30 + (yIdx * legendRowHeight);
-                    
-                    // 色塊
-                    ctx.fillStyle = findHexById(id);
-                    ctx.strokeStyle = '#e5e7eb';
-                    ctx.fillRect(x, y, 20, 20);
-                    ctx.strokeRect(x, y, 20, 20);
-                    
-                    // 文字
-                    ctx.fillStyle = '#1f2937';
-                    ctx.font = 'bold 14px monospace';
-                    ctx.fillText(`${id}: ${counts[id]} 顆`, x + 30, y + 15);
-                    
-                    xIdx++;
-                    if (xIdx >= 5) {
-                        xIdx = 0;
-                        yIdx++;
-                    }
+                    const x = xIdx * 180; const y = 40 + (yIdx * legendRowHeight);
+                    ctx.fillStyle = findHexById(id); ctx.fillRect(x, y, 30, 30);
+                    ctx.strokeStyle = '#d1d5db'; ctx.strokeRect(x, y, 30, 30);
+                    ctx.fillStyle = '#1f2937'; ctx.font = 'bold 16px Arial';
+                    ctx.fillText(`${id}: ${counts[id]}`, x + 40, y + 20);
+                    xIdx++; if (xIdx >= 5) { xIdx = 0; yIdx++; }
                 });
             }
 
-            // 下載
             const link = document.createElement('a');
-            link.download = `pixelart_${currentSize}x${currentSize}_${new Date().getTime()}.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
+            link.download = `pixelart_${new Date().getTime()}.png`;
+            link.href = canvas.toDataURL(); link.click();
         }
 
-        window.onmouseup = () => { isMouseDown = false; };
+        window.onmouseup = () => isMouseDown = false;
         window.onload = () => { initPalette(); initCanvas(52); };
     </script>
 </body>
